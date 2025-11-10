@@ -45,12 +45,28 @@
 
 ### Step 1: Create Service Principal
 ```bash
+# Create service principal with Contributor role
 az ad sp create-for-rbac \
   --name "github-actions-multiagent" \
   --role Contributor \
   --scopes /subscriptions/38f95434-aef9-4dc4-97e9-cb69f25825f0 \
   --sdk-auth
 ```
+
+**Save the output!** You'll need the `clientId` for the next step.
+
+### Step 1.1: Add User Access Administrator Role
+```powershell
+# Replace with your clientId from Step 1
+az role assignment create `
+  --assignee YOUR_CLIENT_ID_HERE `
+  --role "User Access Administrator" `
+  --scope "/subscriptions/38f95434-aef9-4dc4-97e9-cb69f25825f0"
+```
+
+**Required roles:**
+- ✅ **Contributor** - Creates resources
+- ✅ **User Access Administrator** - Assigns roles between resources
 
 ### Step 2: Add GitHub Secrets
 Go to: **Settings** → **Secrets and variables** → **Actions**

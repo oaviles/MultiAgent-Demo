@@ -10,19 +10,40 @@ This guide explains how to configure GitHub Actions for automated deployment of 
 
 ## Step 1: Create Azure Service Principal
 
-Create a service principal with Contributor role for GitHub Actions to deploy infrastructure:
+Create a service principal with the required roles for GitHub Actions to deploy infrastructure:
 
 ```bash
 # Set your subscription
 az account set --subscription 38f95434-aef9-4dc4-97e9-cb69f25825f0
 
-# Create service principal for GitHub Actions
+# Create service principal for GitHub Actions with Contributor role
 az ad sp create-for-rbac \
   --name "github-actions-multiagent" \
   --role Contributor \
   --scopes /subscriptions/38f95434-aef9-4dc4-97e9-cb69f25825f0 \
   --sdk-auth
 ```
+
+**IMPORTANT**: Save the output - you'll need it for GitHub secrets!
+
+### Step 1.1: Add User Access Administrator Role
+
+The service principal also needs **User Access Administrator** role to create role assignments (for AKS to access ACR and Key Vault):
+
+```powershell
+# Get the client ID from the previous command output
+$CLIENT_ID = "YOUR_CLIENT_ID_FROM_ABOVE"
+
+# Add User Access Administrator role
+az role assignment create `
+  --assignee $CLIENT_ID `
+  --role "User Access Administrator" `
+  --scope "/subscriptions/38f95434-aef9-4dc4-97e9-cb69f25825f0"
+```
+
+**Why both roles are needed:**
+- **Contributor**: Creates Azure resources (AKS, ACR, Key Vault, etc.)
+- **User Access Administrator**: Assigns roles between resources (AKS → ACR pull access, AKS → Key Vault access)
 
 This will output JSON like:
 ```json
