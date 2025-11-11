@@ -10,14 +10,14 @@ A production-ready multi-agent orchestration system built with **Microsoft Agent
 ```
                         ┌─────────────────────┐
                         │   Streamlit UI      │
-                        │  (52.185.74.71)     │
+                        │   (LoadBalancer)    │
                         └──────────┬──────────┘
                                    │
                                    │ HTTP
                                    │
                         ┌──────────▼──────────┐
                         │   Orchestrator      │
-                        │  (4.150.144.45)     │
+                        │   (LoadBalancer)    │
                         │   AKS (2 replicas)  │
                         └──────────┬──────────┘
                                    │
@@ -28,7 +28,7 @@ A production-ready multi-agent orchestration system built with **Microsoft Agent
          ┌──────────▼─────┐ ┌─────▼──────┐ ┌────▼─────┐ ┌────▼─────┐
          │ Travel Agent   │ │ Streamlit  │ │ Burger   │ │ Pizza    │
          │ (AKS)          │ │ (AKS)      │ │ Agent    │ │ Agent    │
-         │ 72.152.40.51   │ │            │ │ (GCP)    │ │ (GCP)    │
+         │ LoadBalancer   │ │            │ │ (GCP)    │ │ (GCP)    │
          └────────┬───────┘ └────────────┘ └──────────┘ └──────────┘
                   │
           MCP StreamableHTTP
@@ -38,7 +38,7 @@ A production-ready multi-agent orchestration system built with **Microsoft Agent
   ┌──────▼───────┐  ┌─────▼────────┐
   │ Currency MCP │  │ Activity MCP │
   │ (AKS)        │  │ (AKS)        │
-  │ 8001         │  │ 8002         │
+  │ Port 8001    │  │ Port 8002    │
   └──────────────┘  └──────────────┘
 ```
 
@@ -240,7 +240,7 @@ This will:
 
 **Via Streamlit UI** (Recommended):
 ```
-Open browser: http://52.185.74.71
+Open browser: http://<STREAMLIT_UI_IP>
 
 Quick Test Buttons:
 - 🍔 Order Burgers → Routes to Burger Agent (GCP)
@@ -251,29 +251,31 @@ Quick Test Buttons:
 
 ### Test Orchestrator Directly
 
+Get the orchestrator IP: `kubectl get svc orchestrator-service -n multiagent`
+
 ```bash
 # Travel Agent - Currency conversion
-curl -X POST http://4.150.144.45/task \
+curl -X POST http://<ORCHESTRATOR_IP>/task \
   -H "Content-Type: application/json" \
   -d '{"task": "Convert 100 USD to EUR", "user_id": "test"}'
 
 # Travel Agent - Trip planning
-curl -X POST http://4.150.144.45/task \
+curl -X POST http://<ORCHESTRATOR_IP>/task \
   -H "Content-Type: application/json" \
   -d '{"task": "Plan a 3-day trip to Paris", "user_id": "test"}'
 
 # Burger Agent (GCP)
-curl -X POST http://4.150.144.45/task \
+curl -X POST http://<ORCHESTRATOR_IP>/task \
   -H "Content-Type: application/json" \
   -d '{"task": "I want 2 classic cheeseburgers", "user_id": "test"}'
 
 # Pizza Agent (GCP)
-curl -X POST http://4.150.144.45/task \
+curl -X POST http://<ORCHESTRATOR_IP>/task \
   -H "Content-Type: application/json" \
   -d '{"task": "Order 1 pepperoni pizza", "user_id": "test"}'
 
 # Check discovered agents
-curl http://4.150.144.45/agents
+curl http://<ORCHESTRATOR_IP>/agents
 ```
 
 ### Test Locally
@@ -351,11 +353,17 @@ curl http://localhost:8000/agents
 
 ## 🎯 Live Demo
 
-- **Streamlit UI**: http://52.185.74.71
-- **Orchestrator**: http://4.150.144.45
-- **Travel Agent**: http://72.152.40.51
-- **Burger Agent (GCP)**: https://burger-agent-286879789617.us-central1.run.app
-- **Pizza Agent (GCP)**: https://pizza-agent-286879789617.us-central1.run.app
+Get the service IPs using:
+```bash
+kubectl get svc -n multiagent
+```
+
+Services:
+- **Streamlit UI**: `streamlit-service` (LoadBalancer)
+- **Orchestrator**: `orchestrator-service` (LoadBalancer)
+- **Travel Agent**: `travel-agent-service` (LoadBalancer)
+- **Burger Agent (GCP)**: External Cloud Run service
+- **Pizza Agent (GCP)**: External Cloud Run service
 
 ## 📝 License
 
