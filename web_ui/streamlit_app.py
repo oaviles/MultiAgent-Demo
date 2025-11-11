@@ -4,9 +4,79 @@ import json
 from datetime import datetime
 import time
 import os
+import ast
 
 # Configuration - use environment variable or default
 ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://4.150.144.45")
+
+def parse_agent_response(result_str, agent_name):
+    """
+    Parse agent response and extract clean text based on agent type
+    
+    Args:
+        result_str: The result string from the orchestrator (can be string or dict)
+        agent_name: Name of the agent that processed the task
+        
+    Returns:
+        Formatted string for display
+    """
+    # For travel agent and other simple responses, return as-is if it's a string
+    if "burger" not in agent_name.lower() and "pizza" not in agent_name.lower():
+        if isinstance(result_str, str):
+            return result_str
+        return str(result_str)
+    
+    # For burger/pizza agents (A2A SDK format), parse the nested structure
+    try:
+        result_dict = None
+        
+        # Handle if it's already a dict
+        if isinstance(result_str, dict):
+            result_dict = result_str
+        # Handle if it's a string representation of a dict
+        elif isinstance(result_str, str):
+            # First, try to evaluate it as Python literal
+            try:
+                result_dict = ast.literal_eval(result_str)
+            except:
+                # If that fails, try JSON parsing with quote replacement
+                try:
+                    json_str = result_str.replace("'", '"')
+                    result_dict = json.loads(json_str)
+                except:
+                    # Return original if we can't parse
+                    return result_str
+        
+        # Now extract the text from the parsed dict
+        if result_dict:
+            # Path: result -> result -> artifacts -> [0] -> parts -> [0] -> text
+            if 'result' in result_dict:
+                inner_result = result_dict['result']
+                
+                if isinstance(inner_result, dict) and 'result' in inner_result:
+                    task_result = inner_result['result']
+                    
+                    if isinstance(task_result, dict) and 'artifacts' in task_result:
+                        artifacts = task_result['artifacts']
+                        
+                        if isinstance(artifacts, list) and len(artifacts) > 0:
+                            artifact = artifacts[0]
+                            
+                            if isinstance(artifact, dict) and 'parts' in artifact:
+                                parts = artifact['parts']
+                                
+                                if isinstance(parts, list) and len(parts) > 0:
+                                    part = parts[0]
+                                    
+                                    if isinstance(part, dict) and 'text' in part:
+                                        return part['text']
+        
+        # If we couldn't extract text, return the original
+        return str(result_str)
+        
+    except Exception as e:
+        # If any error occurs, return the original string
+        return str(result_str)
 
 st.set_page_config(
     page_title="Multi-Agent Orchestrator",
@@ -109,13 +179,80 @@ if page == "🏠 Dashboard":
 elif page == "📝 Submit Task":
     st.markdown("## Submit a New Task")
     
+    # Quick test buttons
+    st.markdown("### 🚀 Quick Test Buttons")
+    col_q1, col_q2, col_q3, col_q4 = st.columns(4)
+    
+    quick_task = None
+    with col_q1:
+        if st.button("🍔 Order Burgers", use_container_width=True):
+            quick_task = "I want 2 classic cheeseburgers"
+    with col_q2:
+        if st.button("🍕 Order Pizza", use_container_width=True):
+            quick_task = "Order 1 pepperoni pizza"
+    with col_q3:
+        if st.button("💱 Convert Currency", use_container_width=True):
+            quick_task = "Convert 100 USD to EUR"
+    with col_q4:
+        if st.button("✈️ Plan Trip", use_container_width=True):
+            quick_task = "Plan a 3-day trip to Paris"
+    
+    st.markdown("---")
+    
+    # Follow-up question buttons (shown after initial response)
+    if "show_followups" in st.session_state and st.session_state.show_followups:
+        st.markdown("### 💬 Follow-up Questions")
+        
+        followup_task = None
+        
+        # Currency & Travel follow-ups
+        if st.session_state.get("last_agent_type") in ["travel", "currency", "trip"]:
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                if st.button("🏨 Find Hotels", use_container_width=True):
+                    followup_task = "Find affordable hotels in Paris"
+            with col_f2:
+                if st.button("🍽️ Restaurant Recommendations", use_container_width=True):
+                    followup_task = "Recommend restaurants in Tokyo"
+            with col_f3:
+                if st.button("🎭 Tourist Attractions", use_container_width=True):
+                    followup_task = "What are the top attractions in Rome?"
+        
+        # Food order follow-ups
+        elif st.session_state.get("last_agent_type") in ["burger", "pizza"]:
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                if st.button("🍔 More Burgers", use_container_width=True):
+                    followup_task = "Add 3 bacon burgers to my order"
+            with col_f2:
+                if st.button("🍕 More Pizza", use_container_width=True):
+                    followup_task = "Order 2 margherita pizzas"
+            with col_f3:
+                if st.button("🥤 Add Drinks", use_container_width=True):
+                    followup_task = "Can I add drinks to my order?"
+        
+        if followup_task:
+            st.session_state.task_input_value = followup_task
+            st.rerun()
+        
+        st.markdown("---")
+    
     col1, col2 = st.columns([2, 1])
     
     with col1:
+        # Use quick_task if button was clicked, otherwise keep the existing value
+        default_value = quick_task if quick_task else ""
+        if "task_input_value" not in st.session_state:
+            st.session_state.task_input_value = default_value
+        if quick_task:
+            st.session_state.task_input_value = quick_task
+            
         task_input = st.text_area(
             "Task Description",
+            value=st.session_state.task_input_value,
             placeholder="Example: Create an illustration of a soccer stadium at sunset",
-            height=100
+            height=100,
+            key="task_description"
         )
     
     with col2:
@@ -155,13 +292,42 @@ elif page == "📝 Submit Task":
                     st.success("✅ Task submitted successfully!")
                     
                     if execution_mode == "Synchronous":
-                        st.markdown("### Response:")
-                        st.json(result)
+                        # Show raw response in expander
+                        with st.expander("🔍 View Raw Response", expanded=False):
+                            st.json(result)
                         
                         # Display result nicely
                         if "result" in result:
-                            st.markdown("### Agent Response:")
-                            st.info(result["result"])
+                            agent_used = result.get("agent_used", "unknown")
+                            
+                            st.markdown("### 🤖 Agent Response:")
+                            
+                            # Parse and format the response based on agent type
+                            formatted_response = parse_agent_response(result["result"], agent_used)
+                            
+                            # Display with appropriate icon
+                            if "burger" in agent_used.lower():
+                                st.success(f"🍔 **{formatted_response}**")
+                                st.session_state.last_agent_type = "burger"
+                            elif "pizza" in agent_used.lower():
+                                st.success(f"🍕 **{formatted_response}**")
+                                st.session_state.last_agent_type = "pizza"
+                            elif "travel" in agent_used.lower():
+                                st.info(formatted_response)
+                                # Determine if it's currency or trip planning
+                                if "convert" in task_input.lower() or "exchange" in task_input.lower() or "usd" in task_input.lower() or "eur" in task_input.lower():
+                                    st.session_state.last_agent_type = "currency"
+                                else:
+                                    st.session_state.last_agent_type = "travel"
+                            else:
+                                st.info(formatted_response)
+                                st.session_state.last_agent_type = "other"
+                            
+                            # Show which agent processed it
+                            st.caption(f"✨ Processed by: **{agent_used}**")
+                            
+                            # Enable follow-up questions
+                            st.session_state.show_followups = True
                     else:
                         st.markdown("### Message ID:")
                         message_id = result.get("message_id", "N/A")
@@ -198,10 +364,13 @@ elif page == "📊 Monitor Tasks":
         - "Plan a 3-day trip to Paris"
         - "Find tourist attractions in New York"
         
-        ### For Illustration Agent:
-        - "Create an illustration of a soccer stadium at sunset"
-        - "Generate an image of a futuristic stadium"
-        - "Illustrate a packed stadium during a game"
+        ### For Burger Agent:
+        - "I want 2 classic cheeseburgers"
+        - "Order 3 bacon burgers"
+        
+        ### For Pizza Agent:
+        - "Order 1 pepperoni pizza"
+        - "I want 2 margherita pizzas"
         """)
 
 elif page == "🔍 Async Responses":

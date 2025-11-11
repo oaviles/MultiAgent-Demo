@@ -167,9 +167,15 @@ async def discover_agent(endpoint_url: str) -> Optional[Dict[str, Any]]:
             response.raise_for_status()
             agent_card = response.json()
             
+            # Handle both A2A and ADK formats
+            # A2A: capabilities.skills
+            # ADK: skills (at root level)
+            skills = agent_card.get('skills', []) or agent_card.get('capabilities', {}).get('skills', [])
+            
             logger.info(f"✅ Discovered agent: {agent_card.get('name', 'unknown')}")
             logger.info(f"   Description: {agent_card.get('description', 'N/A')}")
-            logger.info(f"   Skills: {len(agent_card.get('capabilities', {}).get('skills', []))}")
+            logger.info(f"   Protocol: {agent_card.get('protocolVersion', 'A2A')}")
+            logger.info(f"   Skills: {len(skills)}")
             
             return agent_card
             
@@ -224,12 +230,25 @@ def select_best_agent(task: str, preferred_agent: Optional[str] = None) -> Optio
     for agent_name, agent_card in discovered_agents.items():
         # Get agent metadata for matching
         agent_description = agent_card.get("description", "").lower()
+        agent_name_lower = agent_name.lower()
         capabilities = agent_card.get("capabilities", {})
         skills = capabilities.get("skills", [])
         
+        # Match by keywords - Burger Orders (check agent name and description first)
+        if any(keyword in task_lower for keyword in ["burger", "cheeseburger", "hamburger"]):
+            if "burger" in agent_name_lower or "burger" in agent_description:
+                logger.info(f"Selected {agent_name} based on burger keyword in name/description")
+                return agent_name
+        
+        # Match by keywords - Pizza Orders (check agent name and description first)
+        if any(keyword in task_lower for keyword in ["pizza", "pizzas", "margherita", "pepperoni"]):
+            if "pizza" in agent_name_lower or "pizza" in agent_description:
+                logger.info(f"Selected {agent_name} based on pizza keyword in name/description")
+                return agent_name
+        
         # Match by keywords - Illustration agent (check name and description too)
         if any(keyword in task_lower for keyword in ["illustration", "illustrate", "draw", "image", "picture", "visual", "graphic"]):
-            if "illustrat" in agent_name.lower() or "illustrat" in agent_description:
+            if "illustrat" in agent_name_lower or "illustrat" in agent_description:
                 logger.info(f"Selected {agent_name} based on illustration keyword in name/description")
                 return agent_name
         
@@ -255,6 +274,18 @@ def select_best_agent(task: str, preferred_agent: Optional[str] = None) -> Optio
             if any(keyword in task_lower for keyword in ["restaurant", "attraction", "itinerary", "trip", "plan"]):
                 if "travel" in skill_name or "restaurant" in skill_name or "attraction" in skill_name:
                     logger.info(f"Selected {agent_name} based on travel/activity skill match")
+                    return agent_name
+            
+            # Match by keywords - Burger Orders
+            if any(keyword in task_lower for keyword in ["burger", "cheeseburger", "hamburger"]):
+                if "burger" in skill_name or "burger" in skill_desc or "burger" in agent_name.lower():
+                    logger.info(f"Selected {agent_name} based on burger order skill match")
+                    return agent_name
+            
+            # Match by keywords - Pizza Orders
+            if any(keyword in task_lower for keyword in ["pizza", "pizzas", "margherita", "pepperoni"]):
+                if "pizza" in skill_name or "pizza" in skill_desc or "pizza" in agent_name.lower():
+                    logger.info(f"Selected {agent_name} based on pizza order skill match")
                     return agent_name
     
     # Default to first available agent if no specific match

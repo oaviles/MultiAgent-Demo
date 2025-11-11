@@ -98,6 +98,29 @@ module acrRoleAssignment 'modules/role-assignments.bicep' = {
   }
 }
 
+// Workload Identity for pods
+module workloadIdentityModule 'modules/workload-identity.bicep' = {
+  name: 'workload-identity-deployment'
+  params: {
+    location: location
+    environment: environment
+    projectName: projectName
+    tags: tags
+    aksOidcIssuerUrl: aksModule.outputs.oidcIssuerUrl
+    k8sNamespace: 'multiagent'
+    k8sServiceAccountName: 'multiagent-sa'
+  }
+}
+
+// Grant Workload Identity access to OpenAI
+module openAIRoleAssignment 'modules/openai-role-assignment.bicep' = {
+  name: 'openai-role-assignment'
+  params: {
+    openAIName: aiFoundryModule.outputs.openAIName
+    workloadIdentityPrincipalId: workloadIdentityModule.outputs.identityPrincipalId
+  }
+}
+
 // Outputs
 output resourceGroupName string = resourceGroup().name
 output aksClusterName string = aksModule.outputs.aksClusterName
@@ -108,3 +131,5 @@ output openAIName string = aiFoundryModule.outputs.openAIName
 output serviceBusNamespace string = serviceBusModule.outputs.serviceBusNamespace
 output appInsightsConnectionString string = appInsightsModule.outputs.connectionString
 output keyVaultName string = keyVaultModule.outputs.keyVaultName
+output workloadIdentityClientId string = workloadIdentityModule.outputs.identityClientId
+output workloadIdentityName string = workloadIdentityModule.outputs.identityName

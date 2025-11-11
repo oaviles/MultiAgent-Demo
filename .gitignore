@@ -82,3 +82,6 @@ build/
 *.tmp
 temp/
 tmp/
+
+# Archived old code
+_archived/

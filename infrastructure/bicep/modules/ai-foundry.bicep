@@ -153,4 +153,5 @@ output aiProjectName string = aiProject.name
 output aiFoundryEndpoint string = aiProject.properties.discoveryUrl
 output openAIEndpoint string = openAI.properties.endpoint
 output openAIName string = openAI.name
+output openAIResourceId string = openAI.id
 output storageAccountName string = storageAccount.name
