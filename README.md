@@ -8,26 +8,71 @@ A production-ready multi-agent orchestration system built with **Microsoft Agent
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Orchestrator                              │
-│              (A2A Protocol + Service Bus)                        │
-└────────────┬────────────────────────────────┬───────────────────┘
-             │                                │
-             │ A2A Discovery                  │ A2A Discovery
-             │                                │
-   ┌─────────▼──────────┐         ┌──────────▼─────────────┐
-   │   Travel Agent     │         │   External Agent       │
-   │   (ChatAgent)      │         │   (A2A compliant)      │
-   └─────────┬──────────┘         └────────────────────────┘
-             │
-             │ MCP Tools
-             │
-   ┌─────────▼──────────┬──────────────────────┐
-   │                    │                      │
-   │ Currency MCP       │  Activity MCP        │
-   │ (Frankfurter API)  │  (Planning tools)    │
-   └────────────────────┴──────────────────────┘
+                        ┌─────────────────────┐
+                        │   Streamlit UI      │
+                        │  (52.185.74.71)     │
+                        └──────────┬──────────┘
+                                   │
+                                   │ HTTP
+                                   │
+                        ┌──────────▼──────────┐
+                        │   Orchestrator      │
+                        │  (4.150.144.45)     │
+                        │   AKS (2 replicas)  │
+                        └──────────┬──────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    │              │              │
+         A2A Simple │   A2A Simple │   A2A SDK    │ A2A SDK
+                    │              │   (JSON-RPC) │ (JSON-RPC)
+         ┌──────────▼─────┐ ┌─────▼──────┐ ┌────▼─────┐ ┌────▼─────┐
+         │ Travel Agent   │ │ Streamlit  │ │ Burger   │ │ Pizza    │
+         │ (AKS)          │ │ (AKS)      │ │ Agent    │ │ Agent    │
+         │ 72.152.40.51   │ │            │ │ (GCP)    │ │ (GCP)    │
+         └────────┬───────┘ └────────────┘ └──────────┘ └──────────┘
+                  │
+          MCP StreamableHTTP
+                  │
+         ┌────────┴────────┐
+         │                 │
+  ┌──────▼───────┐  ┌─────▼────────┐
+  │ Currency MCP │  │ Activity MCP │
+  │ (AKS)        │  │ (AKS)        │
+  │ 8001         │  │ 8002         │
+  └──────────────┘  └──────────────┘
 ```
+
+### Components
+
+- **Streamlit UI** (AKS): User interface for multi-agent interaction
+- **Orchestrator** (AKS): Routes tasks to appropriate agents using A2A protocol
+- **Travel Agent** (AKS): Handles travel planning, currency conversion, restaurant recommendations
+- **Burger Agent** (GCP Cloud Run): Processes burger orders - [Source Code](https://github.com/alphinside/purchasing-concierge-intro-a2a-codelab-starter)
+- **Pizza Agent** (GCP Cloud Run): Processes pizza orders - [Source Code](https://github.com/alphinside/purchasing-concierge-intro-a2a-codelab-starter)
+- **Currency MCP** (AKS): Real-time exchange rates via Frankfurter API
+- **Activity MCP** (AKS): Travel itinerary and activity planning
+
+### Protocol Support
+
+The orchestrator implements **dual protocol support**:
+
+1. **A2A Simple Format** (Travel Agent):
+   ```json
+   {"task": "...", "user_id": "..."}
+   ```
+
+2. **A2A SDK JSON-RPC Format** (GCP Agents - Burger & Pizza):
+   ```json
+   {
+     "id": "msg-123",
+     "params": {
+       "message": {
+         "role": "user",
+         "parts": [{"type": "text", "text": "..."}]
+       }
+     }
+   }
+   ```
 
 ## 📁 Project Structure
 
@@ -85,25 +130,44 @@ MultiAgent-AKS-MAF/
 
 - **Microsoft Agent Framework (MAF)**: Agent orchestration and communication
 - **Azure AI Foundry**: GPT-4o, GPT-4o-mini models
-- **A2A Protocol**: Agent-to-Agent communication standard
+- **A2A Protocol**: Agent-to-Agent communication standard (Simple + SDK formats)
 - **MCP (Model Context Protocol)**: Tool/plugin architecture
 - **Azure Service Bus**: Message queue for external communication
 - **Azure Kubernetes Service (AKS)**: Container orchestration
+- **Google Cloud Run**: Serverless container hosting (for food ordering agents)
 - **Azure Managed Identity**: Secure authentication
 
 ## ✨ Features
 
 ### Orchestrator
 - ✅ Discovers agents via **A2A AgentCard** resolution
-- ✅ Receives tasks from **Azure Service Bus**
-- ✅ Delegates to specialist agents based on capabilities
+- ✅ **Dual Protocol Support**: A2A Simple + A2A SDK (JSON-RPC 2.0)
+- ✅ Multi-cloud agent integration (AKS + GCP Cloud Run)
+- ✅ Routes tasks based on keywords and agent capabilities
 - ✅ Supports external A2A-compliant agents
 
-### Travel Agent
+### Travel Agent (AKS)
 - ✅ Built with **ChatAgent** from MAF
 - ✅ Uses **MCP tools** for currency and activity planning
 - ✅ Exposes **AgentCard** at `/.well-known/agent.json`
 - ✅ Supports **Azure Managed Identity**
+- ✅ Real-time currency conversion (30+ currencies)
+- ✅ Restaurant recommendations
+- ✅ Multi-day itinerary planning
+
+### Food Ordering Agents (GCP Cloud Run)
+- ✅ **Burger Agent**: Processes burger orders using A2A SDK format
+- ✅ **Pizza Agent**: Processes pizza orders using A2A SDK format
+- ✅ Source: [Purchasing Concierge A2A Codelab](https://github.com/alphinside/purchasing-concierge-intro-a2a-codelab-starter)
+- ✅ Deployed on Google Cloud Run
+- ✅ Integrated via A2A JSON-RPC 2.0 protocol
+
+### Streamlit Web UI (AKS)
+- ✅ User-friendly interface for multi-agent interaction
+- ✅ Quick test buttons for common tasks
+- ✅ Contextual follow-up questions
+- ✅ Clean response formatting with expandable raw JSON
+- ✅ Support for all agent types (travel, burger, pizza)
 
 ### MCP Servers
 - ✅ **Currency MCP**: Exchange rates via Frankfurter API
@@ -170,9 +234,49 @@ This will:
 - Configure session affinity for MCP servers
 - Wait for pods and get external IP
 
-## 🧪 Testing Locally
+## 🧪 Testing
 
-### Test MCP Servers
+### Test the Complete System
+
+**Via Streamlit UI** (Recommended):
+```
+Open browser: http://52.185.74.71
+
+Quick Test Buttons:
+- 🍔 Order Burgers → Routes to Burger Agent (GCP)
+- 🍕 Order Pizza → Routes to Pizza Agent (GCP)
+- 💱 Convert Currency → Routes to Travel Agent (AKS)
+- ✈️ Plan Trip → Routes to Travel Agent (AKS)
+```
+
+### Test Orchestrator Directly
+
+```bash
+# Travel Agent - Currency conversion
+curl -X POST http://4.150.144.45/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Convert 100 USD to EUR", "user_id": "test"}'
+
+# Travel Agent - Trip planning
+curl -X POST http://4.150.144.45/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Plan a 3-day trip to Paris", "user_id": "test"}'
+
+# Burger Agent (GCP)
+curl -X POST http://4.150.144.45/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "I want 2 classic cheeseburgers", "user_id": "test"}'
+
+# Pizza Agent (GCP)
+curl -X POST http://4.150.144.45/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Order 1 pepperoni pizza", "user_id": "test"}'
+
+# Check discovered agents
+curl http://4.150.144.45/agents
+```
+
+### Test Locally
 
 ```bash
 # Start Currency MCP
@@ -190,9 +294,21 @@ cd agents/travel_agent
 python main.py
 
 # Query the agent
-curl -X POST http://localhost:8000/run \
+curl -X POST http://localhost:8080/task \
   -H "Content-Type: application/json" \
-  -d '{"query": "Convert 500 USD to EUR and plan a day in Paris"}'
+  -d '{"task": "Convert 500 USD to EUR", "user_id": "local-test"}'
+```
+
+### Test Orchestrator Agent Discovery
+
+```bash
+cd agents/orchestrator
+# Set environment variable with agent endpoints
+export AGENT_ENDPOINTS="http://travel-agent-service,https://burger-agent-286879789617.us-central1.run.app,https://pizza-agent-286879789617.us-central1.run.app"
+python main.py
+
+# Check discovered agents
+curl http://localhost:8000/agents
 ```
 
 ## 🔐 Security
@@ -231,6 +347,15 @@ curl -X POST http://localhost:8000/run \
 - [A2A Protocol](https://a2a-protocol.org/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Azure AI Foundry](https://learn.microsoft.com/azure/ai-foundry/)
+- [GCP Food Ordering Agents (Burger & Pizza)](https://github.com/alphinside/purchasing-concierge-intro-a2a-codelab-starter)
+
+## 🎯 Live Demo
+
+- **Streamlit UI**: http://52.185.74.71
+- **Orchestrator**: http://4.150.144.45
+- **Travel Agent**: http://72.152.40.51
+- **Burger Agent (GCP)**: https://burger-agent-286879789617.us-central1.run.app
+- **Pizza Agent (GCP)**: https://pizza-agent-286879789617.us-central1.run.app
 
 ## 📝 License
 
@@ -240,6 +365,14 @@ MIT License - see LICENSE file for details
 
 Contributions welcome! Please read CONTRIBUTING.md first.
 
+## 🙏 Acknowledgments
+
+- **Microsoft Agent Framework Team** - Multi-agent orchestration framework
+- **A2A Protocol Contributors** - Agent-to-Agent communication standard
+- **Model Context Protocol** - Tool integration standard
+- **Frankfurter API** - Free currency exchange data
+- **[alphinside/purchasing-concierge-intro-a2a-codelab-starter](https://github.com/alphinside/purchasing-concierge-intro-a2a-codelab-starter)** - GCP food ordering agents
+
 ---
 
-**Built with ❤️ using Microsoft Agent Framework**
+**Built with ❤️ using Microsoft Agent Framework + A2A Protocol**
