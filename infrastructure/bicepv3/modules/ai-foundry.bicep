@@ -88,31 +88,13 @@ resource openAI 'Microsoft.CognitiveServices/accounts@2024-04-01-preview' = {
   }
 }
 
-// GPT-4o Deployment (latest GPT-4 generation)
-resource gpt4oDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-04-01-preview' = {
-  parent: openAI
-  name: 'gpt-4o'
-  sku: {
-    name: 'Standard'
-    capacity: 10
-  }
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-4o'
-      version: '2024-08-06'
-    }
-    raiPolicyName: 'Microsoft.Default'
-  }
-}
-
-// GPT-4o-mini Deployment (faster, cost-effective)
+// GPT-4o-mini Deployment (faster, cost-effective) 
 resource gpt4oMiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-04-01-preview' = {
   parent: openAI
   name: 'gpt-4o-mini'
   sku: {
     name: 'Standard'
-    capacity: 30
+    capacity: 1
   }
   properties: {
     model: {
@@ -122,31 +104,10 @@ resource gpt4oMiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
     }
     raiPolicyName: 'Microsoft.Default'
   }
-  dependsOn: [
-    gpt4oDeployment
-  ]
 }
 
-// GPT-3.5 Turbo Deployment (for faster, cheaper operations)
-resource gpt35TurboDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-04-01-preview' = {
-  parent: openAI
-  name: 'gpt-4.1-mini'
-  sku: {
-    name: 'Standard'
-    capacity: 30
-  }
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-4.1-mini'
-      version: '2025-04-14'
-    }
-    raiPolicyName: 'Microsoft.Default'
-  }
-  dependsOn: [
-    gpt4oMiniDeployment
-  ]
-}
+// Note: GPT-3.5 Turbo deployment removed due to deprecated versions
+// Only deploying GPT-4o-mini which should be sufficient for most use cases
 
 output aiHubName string = aiHub.name
 output aiProjectName string = aiProject.name
